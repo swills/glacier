@@ -10,7 +10,6 @@ from slack import WebClient
 
 from MainWindow import Ui_PyQT5SlackClient
 # import logging
-
 # logging.basicConfig(level=logging.DEBUG)
 slack_api_token = os.environ["SLACK_API_TOKEN"]
 slack_bot_token = os.environ["SLACK_BOT_TOKEN"]
@@ -34,18 +33,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
         loop.create_task(self.rtm_main())
 
     async def rtm_main(self):
+        await asyncio.sleep(1)
         await rtm_client.start()
 
     @RTMClient.run_on(event="message")
-    async def say_hello(**payload):
-        # print("say_hello called")
-        # print("payload: {}".format(payload))
+    async def message_received(**payload):
         data = payload['data']
-        channel_id = data['channel']
-        user = data['user']
-        print("channel_id: {}".format(channel_id))
-        print("user: {}".format(user))
-        print("text: {}".format(data['text']))
+        # channel_id = data['channel']
+        # user = data['user']
+        # print("channel_id: {}".format(channel_id))
+        # print("user: {}".format(user))
+        # print("text: {}".format(data['text']))
+        text = "{}: {}".format(data['user'], data['text'])
+        print(text)
+        mainWindow.textBrowser.append(text)
+        # self.textBrowser.append(text)
+        # self.textBrowser.append(text)
 
     def button_click_send_message(self) -> None:
         message = self.textEdit.toPlainText()
@@ -58,20 +61,23 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
         await self.web_client.chat_postMessage(channel=channel, text=message)
 
     async def get_history(self, chan_id):
-        print("get_history called")
+        # print("get_history called")
+        self.textBrowser.clear()
         history = await self.web_client.conversations_history(channel=chan_id)
         history_messages = history['messages']
         history_messages.reverse()
         for message in history_messages:
-            print("-------------")
-            print(message['type'])
-            if 'subtype' in message.keys():
-                print(message['subtype'])
+            # print("-------------")
+            # print(message['type'])
+            # if 'subtype' in message.keys():
+            #     print(message['subtype'])
             if 'user' in message.keys():
-                print(message['user'])
-            else:
-                print(message)
-            print(message['text'])
+                # print(message['user'])
+                text = "{}: {}".format(message['user'], message['text'])
+                self.textBrowser.append(text)
+            # else:
+            #     print(message)
+            # print(message['text'])
 
     async def get_conversation_list(self):
         conversation_list = await self.web_client.conversations_list(exclude_archived=1)
