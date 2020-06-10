@@ -1,0 +1,40 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.1.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: fix-encoding-pragma
+        args: [--remove]
+        exclude: "MainWindow.py"
+    -   id: check-yaml
+    -   id: check-json
+    -   id: debug-statements
+        language_version: python3
+-   repo: https://github.com/asottile/pyupgrade
+    rev: v2.5.0
+    hooks:
+    -   id: pyupgrade
+        args: [--py3-plus]
+        exclude: "MainWindow.py"
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v0.780
+    hooks:
+    -   id: mypy
+        exclude: "MainWindow.py"
+-   repo: https://github.com/asottile/reorder_python_imports
+    rev: v2.3.0
+    hooks:
+    -   id: reorder-python-imports
+        args: ['--application-directories=.:src', --py3-plus]
+        exclude: "MainWindow.py"
+-   repo: https://gitlab.com/pycqa/flake8
+    rev: 3.8.3
+    hooks:
+    -   id: flake8
+        language_version: python3
+        exclude: "MainWindow.py"
+-   repo: https://github.com/swills/check-trailing-commas.git
+    rev: 127f73cb6f78ad2d7e427beeb3d96aecb4629c6e
+    hooks:
+    - id: check-trailing-commas
