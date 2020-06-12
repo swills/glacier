@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
 import os
+import re
 import sys
 
 from PyQt5 import QtWidgets
@@ -29,6 +30,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
         self.pushButton.setEnabled(False)
         self.listWidget.itemClicked.connect(self.channel_item_clicked)
         self.current_channel_id: str = ""
+        self.user_info_cache = {}
         loop.create_task(self.get_conversation_list())
         loop.create_task(self.rtm_main())
 
@@ -73,11 +75,40 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
             #     print(message['subtype'])
             if 'user' in message.keys():
                 # print(message['user'])
-                text = "{}: {}".format(message['user'], message['text'])
-                self.textBrowser.append(text)
+                user_id = message['user']
+                user_real_name = await self.get_user_real_name(user_id=user_id)
+                # print("user name: {}".format(user_real_name))
+                # handle <@USER_ID> joined/set topic etc
+                message_text: str = message['text']
+                if "<@{}>".format(user_id) in message['text']:
+                    message_text = message['text'].replace("<@{}>".format(user_id),
+                                                           user_real_name)
+                else:
+                    for at_user in re.findall(r'<@U.*?>', message_text):
+                        at_user_id = at_user.replace('<@', '').replace('>', '')
+                        at_user_name = await self.get_user_real_name(user_id=at_user_id)
+                        # print("found at_user: {} {}".format(at_user, at_user_id))
+                        # print("at_user name: {}".format(at_user_name))
+                        message_text = message_text.replace(
+                            at_user, "@" + at_user_name)
+                    message_text = "{}: {}".format(user_real_name, message_text)
+                self.textBrowser.append(message_text)
             # else:
             #     print(message)
             # print(message['text'])
+
+    async def get_user_real_name(self, user_id):
+        user_info = await self.get_user_info(user_id=user_id)
+        # print("user_info 2: {}".format(user_info))
+        # print("user_info 3: {}".format(user_info['real_name']))
+        return user_info['real_name']
+
+    async def get_user_info(self, user_id):
+        if user_id not in self.user_info_cache:
+            user_info_resp = await self.web_client.users_info(user=user_id)
+            self.user_info_cache[user_id] = user_info_resp['user']
+        # print("user_info: {}".format(self.user_info_cache[user_id]))
+        return self.user_info_cache[user_id]
 
     async def get_conversation_list(self):
         conversation_list = await self.web_client.conversations_list(exclude_archived=1)
