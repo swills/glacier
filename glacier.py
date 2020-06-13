@@ -46,9 +46,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
         # print("channel_id: {}".format(channel_id))
         # print("user: {}".format(user))
         # print("text: {}".format(data['text']))
-        text = "{}: {}".format(data['user'], data['text'])
-        print(text)
-        mainWindow.textBrowser.append(text)
+        user_id = data['user']
+        content = data['text']
+        # text = "{}: {}".format(user_id, content)
+        # print(text)
+        # mainWindow.textBrowser.append(text)
+        await mainWindow.append_message_to_chat(user_id=user_id, content=content)
         # self.textBrowser.append(text)
         # self.textBrowser.append(text)
 
@@ -75,27 +78,29 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
             #     print(message['subtype'])
             if 'user' in message.keys():
                 # print(message['user'])
+                content: str = message['text']
                 user_id = message['user']
-                user_real_name = await self.get_user_real_name(user_id=user_id)
-                # print("user name: {}".format(user_real_name))
-                # handle <@USER_ID> joined/set topic etc
-                message_text: str = message['text']
-                if "<@{}>".format(user_id) in message['text']:
-                    message_text = message['text'].replace("<@{}>".format(user_id),
-                                                           user_real_name)
-                else:
-                    for at_user in re.findall(r'<@U.*?>', message_text):
-                        at_user_id = at_user.replace('<@', '').replace('>', '')
-                        at_user_name = await self.get_user_real_name(user_id=at_user_id)
-                        # print("found at_user: {} {}".format(at_user, at_user_id))
-                        # print("at_user name: {}".format(at_user_name))
-                        message_text = message_text.replace(
-                            at_user, "@" + at_user_name)
-                    message_text = "{}: {}".format(user_real_name, message_text)
-                self.textBrowser.append(message_text)
+                await self.append_message_to_chat(content, user_id)
             # else:
             #     print(message)
             # print(message['text'])
+
+    async def append_message_to_chat(self, content, user_id):
+        user_real_name = await self.get_user_real_name(user_id=user_id)
+        # print("user name: {}".format(user_real_name))
+        # handle <@USER_ID> joined/set topic etc
+        if "<@{}>".format(user_id) in content:
+            content = content.replace("<@{}>".format(user_id), user_real_name)
+        else:
+            for at_user in re.findall(r'<@U.*?>', content):
+                at_user_id = at_user.replace('<@', '').replace('>', '')
+                at_user_name = await self.get_user_real_name(user_id=at_user_id)
+                # print("found at_user: {} {}".format(at_user, at_user_id))
+                # print("at_user name: {}".format(at_user_name))
+                content = content.replace(
+                    at_user, "@" + at_user_name)
+            content = "{}: {}".format(user_real_name, content)
+        self.textBrowser.append(content)
 
     async def get_user_real_name(self, user_id):
         user_info = await self.get_user_info(user_id=user_id)
