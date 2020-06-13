@@ -41,19 +41,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
     @RTMClient.run_on(event="message")
     async def message_received(**payload):
         data = payload['data']
-        # channel_id = data['channel']
-        # user = data['user']
-        # print("channel_id: {}".format(channel_id))
-        # print("user: {}".format(user))
-        # print("text: {}".format(data['text']))
         user_id = data['user']
         content = data['text']
-        # text = "{}: {}".format(user_id, content)
-        # print(text)
-        # mainWindow.textBrowser.append(text)
         await mainWindow.append_message_to_chat(user_id=user_id, content=content)
-        # self.textBrowser.append(text)
-        # self.textBrowser.append(text)
 
     def button_click_send_message(self) -> None:
         message = self.textEdit.toPlainText()
@@ -66,37 +56,26 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
         await self.web_client.chat_postMessage(channel=channel, text=message)
 
     async def get_history(self, chan_id):
-        # print("get_history called")
         self.textBrowser.clear()
         history = await self.web_client.conversations_history(channel=chan_id)
         history_messages = history['messages']
         history_messages.reverse()
         for message in history_messages:
-            # print("-------------")
-            # print(message['type'])
-            # if 'subtype' in message.keys():
-            #     print(message['subtype'])
             if 'user' in message.keys():
-                # print(message['user'])
                 content: str = message['text']
                 user_id = message['user']
                 await self.append_message_to_chat(content, user_id)
-            # else:
-            #     print(message)
-            # print(message['text'])
+            else:
+                print("unhandled message type: {}".format(message))
 
     async def append_message_to_chat(self, content, user_id):
         user_real_name = await self.get_user_real_name(user_id=user_id)
-        # print("user name: {}".format(user_real_name))
-        # handle <@USER_ID> joined/set topic etc
         if "<@{}>".format(user_id) in content:
             content = content.replace("<@{}>".format(user_id), user_real_name)
         else:
             for at_user in re.findall(r'<@U.*?>', content):
                 at_user_id = at_user.replace('<@', '').replace('>', '')
                 at_user_name = await self.get_user_real_name(user_id=at_user_id)
-                # print("found at_user: {} {}".format(at_user, at_user_id))
-                # print("at_user name: {}".format(at_user_name))
                 content = content.replace(
                     at_user, "@" + at_user_name)
             content = "{}: {}".format(user_real_name, content)
@@ -104,15 +83,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
 
     async def get_user_real_name(self, user_id):
         user_info = await self.get_user_info(user_id=user_id)
-        # print("user_info 2: {}".format(user_info))
-        # print("user_info 3: {}".format(user_info['real_name']))
-        return user_info['real_name']
+        if "profile" in user_info.keys():
+            return user_info['profile']['real_name']
+        elif "real_name" in user_info.keys():
+            return user_info['real_name']
+        else:
+            print("Failed to get real name: {}".format(user_info))
+            return "Unknown User"
 
     async def get_user_info(self, user_id):
         if user_id not in self.user_info_cache:
             user_info_resp = await self.web_client.users_info(user=user_id)
             self.user_info_cache[user_id] = user_info_resp['user']
-        # print("user_info: {}".format(self.user_info_cache[user_id]))
         return self.user_info_cache[user_id]
 
     async def get_conversation_list(self):
