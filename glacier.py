@@ -29,6 +29,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
         self.pushButton.clicked.connect(self.button_click_send_message)
         self.pushButton.setEnabled(False)
         self.listWidget.itemClicked.connect(self.channel_item_clicked)
+        self.pushButton_2.clicked.connect(self.print_hi)
         self.current_channel_id: str = ""
         self.user_info_cache = {}
         loop.create_task(self.get_conversation_list())
@@ -37,6 +38,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
     async def rtm_main(self):
         await asyncio.sleep(1)
         await rtm_client.start()
+
+    def print_hi(self):
+        print("hi")
 
     @RTMClient.run_on(event="message")
     async def message_received(**payload):
