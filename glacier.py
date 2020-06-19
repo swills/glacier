@@ -29,18 +29,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
         self.pushButton.clicked.connect(self.button_click_send_message)
         self.pushButton.setEnabled(False)
         self.listWidget.itemClicked.connect(self.channel_item_clicked)
-        self.pushButton_2.clicked.connect(self.print_hi)
         self.current_channel_id: str = ""
         self.user_info_cache = {}
+        self.bots_info_cache = {}
         loop.create_task(self.get_conversation_list())
         loop.create_task(self.rtm_main())
 
     async def rtm_main(self):
         await asyncio.sleep(1)
         await rtm_client.start()
-
-    def print_hi(self):
-        print("hi")
 
     @RTMClient.run_on(event="message")
     async def message_received(**payload):
@@ -65,15 +62,36 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
         history_messages = history['messages']
         history_messages.reverse()
         for message in history_messages:
-            if 'user' in message.keys():
-                content: str = message['text']
-                user_id = message['user']
-                await self.append_message_to_chat(content, user_id)
+            if 'type' in message.keys():
+                if 'subtype' in message.keys():
+                    if message['subtype'] == 'bot_message':
+                        # print("processing bot message: {}".format(message))
+                        if 'username' in message.keys():
+                            content: str = message['username'] + ": " + message['text']
+                        else:
+                            content = message['text']
+                        if 'attachments' in message.keys():
+                            for attachment in message['attachments']:
+                                if 'fallback' in attachment.keys():
+                                    content = content + attachment['fallback']
+                        user_id = message['bot_id']
+                        await self.append_message_to_chat(content=content,
+                                                          user_id=user_id)
+                    # else:
+                    #     print("unhandled subtype type: {}".format(message))
+                if 'user' in message.keys():
+                    # print("processing message: {}".format(message))
+                    content = message['text']
+                    user_id = message['user']
+                    await self.append_message_to_chat(content=content, user_id=user_id)
             else:
                 print("unhandled message type: {}".format(message))
 
     async def append_message_to_chat(self, content, user_id):
-        user_real_name = await self.get_user_real_name(user_id=user_id)
+        if re.match("^U.*", user_id, flags=re.IGNORECASE):
+            user_real_name = await self.get_user_real_name(user_id=user_id)
+        else:
+            user_real_name = await self.get_bots_real_name(bot_id=user_id)
         if "<@{}>".format(user_id) in content:
             content = content.replace("<@{}>".format(user_id), user_real_name)
         else:
@@ -95,11 +113,32 @@ class MainWindow(QtWidgets.QMainWindow, Ui_PyQT5SlackClient):
             print("Failed to get real name: {}".format(user_info))
             return "Unknown User"
 
+    async def get_bots_real_name(self, bot_id):
+        # print("getting bot info: {}".format(bot_id))
+        bots_info = await self.get_bots_info(bot_id=bot_id)
+        # print("bots info: {}".format(bots_info))
+        if 'user_id' in bots_info['bot'].keys():
+            user_id = bots_info['bot']['user_id']
+            bot_user_name = await self.get_user_real_name(user_id=user_id)
+            return bot_user_name
+        elif 'name' in bots_info['bot'].keys():
+            return bots_info['bot']['name']
+        else:
+            print("Failed to get bot name: {}".format(bot_id))
+            return "unknown bot user"
+
     async def get_user_info(self, user_id):
         if user_id not in self.user_info_cache:
             user_info_resp = await self.web_client.users_info(user=user_id)
             self.user_info_cache[user_id] = user_info_resp['user']
         return self.user_info_cache[user_id]
+
+    async def get_bots_info(self, bot_id):
+        if bot_id not in self.bots_info_cache:
+            bots_info_resp = await self.web_client.bots_info(bot=bot_id)
+            # print("raw bot info: {}".format(bots_info_resp))
+            self.bots_info_cache[bot_id] = bots_info_resp
+        return self.bots_info_cache[bot_id]
 
     async def get_conversation_list(self):
         conversation_list = await self.web_client.conversations_list(exclude_archived=1)
